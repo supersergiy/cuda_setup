@@ -100,12 +100,12 @@ class Unet(nn.Module):
             print('Upsample', inp, out)
             layer = nn.Sequential(
                 nn.Upsample(scale_factor=2),
-                nn.Conv3d(inp, out, 1, padding=0),
+                nn.Conv3d(inp, out, 1, padding=0))
         else:
             print('ConvTranpose', inp, out)
             layer = nn.Sequential(
                 nn.ConvTranspose3d(inp, out, 2, stride=2,
-                                   padding=padding, output_padding=output_padding),
+                                   padding=padding, output_padding=output_padding))
         return layer
 
     def block(self, inp, mid, out, kernel_size=3, padding=1,
