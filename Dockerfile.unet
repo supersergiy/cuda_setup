@@ -7,4 +7,3 @@ WORKDIR /opt
 RUN pip install http://download.pytorch.org/whl/cu90/torch-0.3.1-cp27-cp27mu-linux_x86_64.whl  \
     && pip install torchvision 
 RUN apt-get install screen -y
-ADD unet.py /opt/
