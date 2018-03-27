@@ -4,10 +4,13 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+torch.backends.cudnn.benchmark = True
+
 import torchvision
 from torchvision import datasets, transforms
 from torch.autograd import Variable
 import numpy as np
+from time import time 
 
 class Identity(nn.Module):
     def forward(self, x):
@@ -15,15 +18,15 @@ class Identity(nn.Module):
 
 class Unet(nn.Module):
     def __init__(self, merge = True, #Otherwise sum
-                       symmetric = True,
+                       symmetric = False,
                        activation = nn.ReLU,
                        kernel_size = 3,
                        batchnorm = False,
                        upsample = True,
-                       kernel_shape =  [[3,8],
-                                        [8,16],
-                                        [16,32],
-                                        [32,64]]):
+                       kernel_shape =  [[3,64],
+                                        [64,128],
+                                        [128,256],
+                                        [256,512]]):
         super(Unet, self).__init__()
         self.blocks = []
         self.merge = merge
@@ -81,7 +84,7 @@ class Unet(nn.Module):
                                              batchnorm = batchnorm))
 
         self.final = nn.Conv3d(kernel_shape[0][1], kernel_shape[0][0],
-                               kernel_size=kernel_size, padding=padding)
+                               kernel_size=1, padding=0)
 
         #for m in self.modules():
         #    if isinstance(m, nn.Conv2d):
@@ -97,14 +100,12 @@ class Unet(nn.Module):
             print('Upsample', inp, out)
             layer = nn.Sequential(
                 nn.Upsample(scale_factor=2),
-                nn.Conv3d(inp, out, kernel_size, padding=padding),
-                activation())
+                nn.Conv3d(inp, out, 1, padding=0),
         else:
             print('ConvTranpose', inp, out)
             layer = nn.Sequential(
-                nn.ConvTranspose3d(inp, out, kernel_size, stride=stride,
+                nn.ConvTranspose3d(inp, out, 2, stride=2,
                                    padding=padding, output_padding=output_padding),
-                activation())
         return layer
 
     def block(self, inp, mid, out, kernel_size=3, padding=1,
@@ -156,8 +157,20 @@ class Unet(nn.Module):
 #Simple test
 if __name__ == "__main__":
     unet = Unet().cuda()
-    s = np.ones((1,3,128,128,128), dtype=np.float32)
+    s = np.ones((1,3,108,108,108), dtype=np.float32)
     x = torch.from_numpy(s).cuda()
     xs = torch.autograd.Variable(x, requires_grad=False)
-    out = unet(xs)
-    print(out.shape) #expected output (1,3,32,32,32)
+    durations = []
+    num_iterations = 10
+    num_warmups = 5
+    for i in range(num_iterations + num_warmups):
+        torch.cuda.synchronize()
+        t1 = time()
+        unet(xs)
+        torch.cuda.synchronize()
+        t2 = time()
+        if i >= num_warmups:
+           durations.append(t2 - t1) 
+    average = sum(durations) / len(durations)
+    print ("average: {} sec".format(average))
+    
